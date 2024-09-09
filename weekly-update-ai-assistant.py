@@ -43,10 +43,17 @@ if user_question:
     past_messages = [{"role": "system", "content": msg} for msg in st.session_state.conversation_history]
     past_messages.append(message)
 
+    # Set the configuration required by the memory checkpointer
+    config = {
+        "configurable": {
+            "thread_id": st.session_state.thread_id,  # Provide the thread ID for checkpointing
+        }
+    }
+
     # Execute the agent and stream results
     try:
         for chunk in agent_executor.stream(
-            {"messages": past_messages, "thread_id": st.session_state.thread_id}, {}
+            {"messages": past_messages, "thread_id": st.session_state.thread_id}, config
         ):
             # Store the response in conversation history
             st.session_state.conversation_history.append(user_question)  # Add user question
