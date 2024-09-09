@@ -1,3 +1,6 @@
+# Install necessary packages (run this in your environment)
+# %pip install -U langchain-community langgraph langchain-openai tavily-python langgraph-checkpoint-sqlite streamlit
+
 import uuid
 import streamlit as st
 from langchain_community.tools.tavily_search import TavilySearchResults
@@ -41,36 +44,24 @@ if user_question:
     # Prepare the message with the required 'role' and 'content' keys
     message = {"role": "user", "content": user_question}
 
-    final_answer = None  # To store the final agent response
-
     # Execute the agent and stream results (just like in your original code)
     try:
         for chunk in agent_executor.stream(
             {"messages": [message], "thread_id": thread_id}, config
         ):
-            # Log intermediate steps (for backend logging)
-            print("Logging intermediate step: ", chunk)
-
-            # Capture the final AI response to display to the user
-            if 'AIMessage' in str(chunk):
-                final_answer = chunk  # Store the final AI message
+            conversation_history.append(chunk)
+            st.write(chunk)
+            st.write("----")
     except Exception as e:
         st.error(f"An error occurred: {e}")
 
-    # Display only the final response to the user
-    if final_answer:
-        st.write("Final Response:")
-        st.write(final_answer)
-    else:
-        st.write("No final answer generated.")
-        
 # Option to start a new conversation
 if st.button("Start New Conversation"):
     thread_id = str(uuid.uuid4())
     st.write(f"New thread ID: {thread_id}")
     conversation_history.clear()
 
-# Display past conversation (only final responses)
+# Display past conversation
 st.write("## Conversation History")
 for message in conversation_history:
     st.write(message)
