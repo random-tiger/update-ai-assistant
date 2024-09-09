@@ -40,7 +40,10 @@ if user_question:
     message = {"role": "user", "content": user_question}
 
     # Include past conversation in the messages if there is any
-    past_messages = [{"role": "system", "content": msg} for msg in st.session_state.conversation_history]
+    past_messages = []
+    for msg in st.session_state.conversation_history:
+        if isinstance(msg, dict):
+            past_messages.append(msg)
     past_messages.append(message)
 
     # Set the configuration required by the memory checkpointer
@@ -57,8 +60,8 @@ if user_question:
             {"messages": past_messages, "thread_id": st.session_state.thread_id}, config
         ):
             # Store the response in conversation history
-            st.session_state.conversation_history.append(user_question)  # Add user question
-            st.session_state.conversation_history.append(chunk)  # Add agent response
+            st.session_state.conversation_history.append(message)  # Add user question
+            st.session_state.conversation_history.append({"role": "assistant", "content": chunk})  # Add agent response
             st.write(chunk)
             st.write("----")
     except Exception as e:
@@ -73,4 +76,5 @@ if st.button("Start New Conversation"):
 # Display past conversation
 st.write("## Conversation History")
 for message in st.session_state.conversation_history:
-    st.write(message)
+    if isinstance(message, dict):
+        st.write(f"{message['role'].capitalize()}: {message['content']}")
