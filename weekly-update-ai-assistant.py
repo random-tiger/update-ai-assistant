@@ -56,10 +56,16 @@ if user_question:
         for chunk in agent_executor.stream(
             {"messages": past_messages, "thread_id": st.session_state.thread_id}, config
         ):
+            # Debug: Print the structure of chunk to identify its keys
+            st.write(chunk)  # Display the full chunk to inspect its structure
+
             # Store the response in conversation history
             st.session_state.conversation_history.append(user_question)  # Add user question
-            st.session_state.conversation_history.append(str(chunk["content"]))  # Ensure agent response is stored as a string
-            st.write(chunk["content"])  # Display the agent's response
+            
+            # Try accessing the 'content' key
+            response_content = chunk.get("content", "No content found")  # Use get() to avoid key errors
+            st.session_state.conversation_history.append(response_content)  # Add agent response
+            st.write(response_content)
             st.write("----")
     except Exception as e:
         st.error(f"An error occurred: {e}")
