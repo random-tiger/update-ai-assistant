@@ -38,10 +38,13 @@ user_question = st.text_input("Please enter your question:")
 if user_question:
     st.write(f"User: {user_question}")
     
+    # Prepare the message with the required 'role' and 'content' keys
+    message = {"role": "user", "content": user_question}
+
     # Execute the agent and stream results
     try:
         for chunk in agent_executor.stream(
-            {"messages": [{"content": user_question, "thread_id": thread_id}]}, config
+            {"messages": [message], "thread_id": thread_id}, config
         ):
             conversation_history.append(chunk)
             st.write(chunk)
