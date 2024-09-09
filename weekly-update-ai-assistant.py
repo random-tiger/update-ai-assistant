@@ -22,7 +22,7 @@ def search_tavily(query: str) -> str:
 # Initialize memory and agent
 memory = MemorySaver()
 model = ChatOpenAI(model="gpt-4o", api_key=openai_api_key)
-tools = [search_tavily, sentiment_analysis]  # Add both tools to the agent's available tools
+tools = [search_tavily]  # Add both tools to the agent's available tools
 agent_executor = create_react_agent(model, tools, checkpointer=memory)
 
 # App title and description
