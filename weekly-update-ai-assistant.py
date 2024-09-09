@@ -46,7 +46,8 @@ if user_question:
     # Set the configuration required by the memory checkpointer
     config = {
         "configurable": {
-            "thread_id": st.session_state.thread_id,  # Provide the thread ID for checkpointing
+            "thread_id": st.session_state.thread_id,  # Use the stored thread ID for checkpointing
+            "checkpoint_id": str(uuid.uuid4()),  # Generate a unique checkpoint ID for each interaction
         }
     }
 
