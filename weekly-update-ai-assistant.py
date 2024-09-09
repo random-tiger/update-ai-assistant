@@ -43,7 +43,7 @@ if user_question:
 
     final_answer = None  # To store the final agent response
 
-    # Execute the agent and stream results (just like in your original code)
+    # Execute the agent and stream results
     try:
         for chunk in agent_executor.stream(
             {"messages": [message], "thread_id": thread_id}, config
@@ -54,6 +54,10 @@ if user_question:
             # Capture the final AI response to display to the user
             if 'AIMessage' in str(chunk):
                 final_answer = chunk  # Store the final AI message
+
+            # Update memory with the agent's output to retain context for future queries
+            memory.add(chunk)
+            
     except Exception as e:
         st.error(f"An error occurred: {e}")
 
