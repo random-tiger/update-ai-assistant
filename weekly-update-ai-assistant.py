@@ -59,13 +59,13 @@ if user_question:
             # Debug: Print the structure of chunk to identify its keys
             st.write(chunk)  # Display the full chunk to inspect its structure
 
+            # Extract the 'AIMessage' content for the response
+            agent_message = chunk["agent"]["messages"][0] if "agent" in chunk and "messages" in chunk["agent"] else "No content found"
+
             # Store the response in conversation history
             st.session_state.conversation_history.append(user_question)  # Add user question
-            
-            # Try accessing the 'content' key
-            response_content = chunk.get("content", "No content found")  # Use get() to avoid key errors
-            st.session_state.conversation_history.append(response_content)  # Add agent response
-            st.write(response_content)
+            st.session_state.conversation_history.append(agent_message)  # Add agent response
+            st.write(agent_message)  # Display the agent's response
             st.write("----")
     except Exception as e:
         st.error(f"An error occurred: {e}")
