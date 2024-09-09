@@ -40,7 +40,7 @@ if user_question:
     message = {"role": "user", "content": user_question}
 
     # Include past conversation in the messages if there is any
-    past_messages = [{"role": "system", "content": msg} for msg in st.session_state.conversation_history]
+    past_messages = [{"role": "system", "content": str(msg)} for msg in st.session_state.conversation_history]  # Ensure content is a string
     past_messages.append(message)
 
     # Set the configuration required by the memory checkpointer
@@ -58,8 +58,8 @@ if user_question:
         ):
             # Store the response in conversation history
             st.session_state.conversation_history.append(user_question)  # Add user question
-            st.session_state.conversation_history.append(chunk)  # Add agent response
-            st.write(chunk)
+            st.session_state.conversation_history.append(str(chunk["content"]))  # Ensure agent response is stored as a string
+            st.write(chunk["content"])  # Display the agent's response
             st.write("----")
     except Exception as e:
         st.error(f"An error occurred: {e}")
