@@ -59,6 +59,12 @@ if user_question:
         for chunk in agent_executor.stream(
             {"messages": past_messages, "thread_id": st.session_state.thread_id}, config
         ):
+            # Ensure that the chunk is a string and not a list
+            if isinstance(chunk, list):
+                chunk = " ".join(chunk)  # Convert list of strings to a single string
+            elif not isinstance(chunk, str):
+                chunk = str(chunk)  # Ensure chunk is a string
+
             # Store the response in conversation history
             st.session_state.conversation_history.append(message)  # Add user question
             st.session_state.conversation_history.append({"role": "assistant", "content": chunk})  # Add agent response
