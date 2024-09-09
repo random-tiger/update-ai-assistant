@@ -4,6 +4,7 @@ from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import MemorySaver
+from langchain.tools import tool
 
 # Access secrets for API keys
 openai_api_key = st.secrets["OPENAI_API_KEY"]
@@ -11,17 +12,21 @@ tavily_api_key = st.secrets["TAVILY_API_KEY"]
 langchain_api_key = st.secrets["LANGCHAIN_API_KEY"]
 langchain_tracing_v2 = st.secrets["LANGCHAIN_TRACING_V2"]
 
-# Initialize Tavily search tool
-search = TavilySearchResults(max_results=2)
+# Define the Tavily search tool using @tool decorator
+@tool
+def search_tavily(query: str) -> str:
+    """Search Tavily and return the top results."""
+    search = TavilySearchResults(max_results=2)
+    return search.run(query)
 
 # Initialize memory and agent
 memory = MemorySaver()
 model = ChatOpenAI(model="gpt-4o", api_key=openai_api_key)
-tools = [search]  # Add Tavily search tool to the agent's available tools
+tools = [search_tavily, sentiment_analysis]  # Add both tools to the agent's available tools
 agent_executor = create_react_agent(model, tools, checkpointer=memory)
 
 # App title and description
-st.title("Interactive AI Agent with Tavily Search")
+st.title("Interactive AI Agent with Multiple Tools")
 st.write("Ask the AI anything, and it will retrieve information or answer your question using its available tools.")
 
 # Initialize or retrieve conversation thread ID
