@@ -23,10 +23,10 @@ def search_tavily(query: str) -> str:
 memory = MemorySaver()
 model = ChatOpenAI(model="gpt-4o", api_key=openai_api_key)
 tools = [search_tavily]  # Add both tools to the agent's available tools
-agent_executor = create_react_agent(model, tools, checkpointer=memory)
+agent_executor = create_react_agent(model, tools, checkpointer=memory)  # Memory checkpointer is added back
 
 # App title and description
-st.title("Interactive AI Agent with Multiple Tools")
+st.title("Interactive AI Agent with Multiple Tools and Memory")
 st.write("Ask the AI anything, and it will retrieve information or answer your question using its available tools.")
 
 # Initialize or retrieve conversation thread ID
