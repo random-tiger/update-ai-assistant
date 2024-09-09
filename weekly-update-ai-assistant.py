@@ -1,6 +1,3 @@
-# Install necessary packages (run this in your environment)
-# %pip install -U langchain-community langgraph langchain-openai tavily-python langgraph-checkpoint-sqlite streamlit
-
 import uuid
 import streamlit as st
 from langchain_community.tools.tavily_search import TavilySearchResults
