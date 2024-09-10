@@ -14,8 +14,8 @@ from langgraph.prebuilt import tools_condition
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable, RunnableConfig
-from typing_extensions import TypedDict
 from langchain_core.messages import HumanMessage, AIMessage
+from typing_extensions import TypedDict
 
 # Access secrets for API keys
 openai_api_key = st.secrets["OPENAI_API_KEY"]
@@ -24,7 +24,7 @@ langchain_api_key = st.secrets["LANGCHAIN_API_KEY"]
 langchain_tracing_v2 = st.secrets["LANGCHAIN_TRACING_V2"]
 
 # Initialize the model
-model = ChatOpenAI(model="gpt-4", api_key=openai_api_key)
+model = ChatOpenAI(model="gpt-4o", api_key=openai_api_key)
 
 # Define the State as a typed dictionary
 class State(TypedDict):
