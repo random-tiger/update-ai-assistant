@@ -13,7 +13,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.tools import tool
 from langgraph.graph import START, StateGraph, END
 from langchain_core.runnables import RunnableLambda
-from langchain_core.messages import ToolMessage
+from langchain_core.messages import ToolMessage, HumanMessage, AIMessage  # Import message types
 from typing import Annotated
 from typing_extensions import TypedDict
 from langgraph.graph.message import AnyMessage, add_messages
@@ -132,16 +132,31 @@ if "thread_id" not in st.session_state:
 if "conversation_history" not in st.session_state:
     st.session_state.conversation_history = []
 
+# Convert conversation history to the correct format (HumanMessage or AIMessage)
+def format_conversation_history(conversation_history):
+    messages = []
+    for entry in conversation_history:
+        if entry["role"] == "user":
+            messages.append(HumanMessage(content=entry["content"]))
+        elif entry["role"] == "assistant":
+            messages.append(AIMessage(content=entry["content"]))
+    return messages
+
 user_question = st.text_input("Please enter your question:")
 
 if user_question:
     st.write(f"User: {user_question}")
+
+    # Append the user question to the conversation history
+    st.session_state.conversation_history.append({"role": "user", "content": user_question})
+
+    # Format the conversation history properly
+    messages = format_conversation_history(st.session_state.conversation_history)
     
-    state = {"messages": st.session_state.conversation_history}
     config = {"configurable": {"thread_id": st.session_state.thread_id}}
 
     try:
-        result = agent_graph.invoke(state, config)
+        result = agent_graph.invoke({"messages": messages}, config)
         agent_message = result["messages"][-1]["content"]
         st.session_state.conversation_history.append({"role": "assistant", "content": agent_message})
         st.write(agent_message)
