@@ -1,7 +1,10 @@
 streamlit
+requests
+pandas
+langchain
+langchain-openai
 langchain-community
 langgraph
-langchain-openai
-tavily-python
-langgraph-checkpoint-sqlite
-python-dotenv
+openai
+faiss-cpu
+uuid
