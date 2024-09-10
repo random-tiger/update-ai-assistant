@@ -3,35 +3,41 @@ import streamlit as st
 import requests
 import pandas as pd
 from io import StringIO
-from langchain_community.tools.tavily_search import TavilySearchResults
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import Runnable, RunnableConfig
+from datetime import datetime
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.tools import tool
-from datetime import datetime
-from langchain_core.messages import AIMessage, HumanMessage  # Import message types
+from langchain_community.tools.tavily_search import TavilySearchResults
+from langchain_openai import ChatOpenAI
+from langgraph.graph import StateGraph, START
+from langgraph.prebuilt import tools_condition
+from langgraph.checkpoint.memory import MemorySaver
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import Runnable, RunnableConfig
+from typing_extensions import TypedDict
+from langchain_core.messages import HumanMessage, AIMessage
 
 # Access secrets for API keys
 openai_api_key = st.secrets["OPENAI_API_KEY"]
 tavily_api_key = st.secrets["TAVILY_API_KEY"]
-tavily_api_key = st.secrets["LANGCHAIN_API_KEY"]
+langchain_api_key = st.secrets["LANGCHAIN_API_KEY"]
 langchain_tracing_v2 = st.secrets["LANGCHAIN_TRACING_V2"]
 
-# Initialize memory and model
-model = ChatOpenAI(model="gpt-4o", api_key=openai_api_key)
+# Initialize the model
+model = ChatOpenAI(model="gpt-4", api_key=openai_api_key)
 
-# Define the Tavily search tool
-@tool
+# Define the State as a typed dictionary
+class State(TypedDict):
+    messages: list
+
+# Define Tools
+# Tavily Search Tool
 def search_tavily(query: str) -> str:
     """Search Tavily and return the top results."""
     search = TavilySearchResults(max_results=2)
     return search.run(query)
 
-# Define the tool to retrieve CSV, split, embed, and search embeddings
-@tool
+# CSV Embedding Search Tool
 def search_csv_embeddings(query: str) -> str:
     """Fetch CSV data, split, embed, and search embeddings."""
     url = "https://app.periscopedata.com/api/adrise:tubi/chart/csv/9609090c-4c3d-e932-06eb-68353433d860/1460174"
@@ -59,13 +65,28 @@ def search_csv_embeddings(query: str) -> str:
     else:
         return "No relevant data found in the CSV."
 
-# Prompt template to structure the conversation
+# Assistant Class
+class Assistant:
+    def __init__(self, runnable: Runnable):
+        self.runnable = runnable
+
+    def __call__(self, state: State, config: RunnableConfig):
+        while True:
+            result = self.runnable.invoke(state)
+            
+            # Re-prompt if no result is found
+            if not result.tool_calls and (not result.content or isinstance(result.content, list) and not result.content[0].get("text")):
+                state["messages"].append(HumanMessage(content="Respond with a real output."))
+            else:
+                break
+        return result
+
+# Define the Primary Prompt Template
 primary_assistant_prompt = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are a helpful assistant. Use the provided tools to search for information. "
-            "If no results are found, persistently expand the query bounds."
+            "You are a helpful assistant. Use the provided tools to search for information."
             "\n\nCurrent user:\n\n{user_info}\n"
             "\nCurrent time: {time}.",
         ),
@@ -73,63 +94,51 @@ primary_assistant_prompt = ChatPromptTemplate.from_messages(
     ]
 ).partial(time=datetime.now())
 
-# Combine tools into a runnable assistant
+# Define the tools
 tools = [search_tavily, search_csv_embeddings]
+
+# Assistant runnable
 assistant_runnable = primary_assistant_prompt | model.bind_tools(tools)
 
-# Assistant class
-class Assistant:
-    def __init__(self, runnable: Runnable):
-        self.runnable = runnable
+# Define the graph
+builder = StateGraph(State)
+builder.add_node("assistant", Assistant(assistant_runnable))
 
-    def __call__(self, state, config: RunnableConfig):
-        while True:
-            configuration = config.get("configurable", {})
-            state = {**state, "user_info": configuration.get("user_info", None)}
-            result = self.runnable.invoke(state)
-            
-            # Check if result is empty or needs re-prompting
-            if not result.tool_calls and (not result.content or isinstance(result.content, list) and not result.content[0].get("text")):
-                messages = state["messages"] + [("user", "Respond with a real output.")]
-                state = {**state, "messages": messages}
-            else:
-                break
-        return {"messages": result}
+# Define edges for the assistant
+builder.add_edge(START, "assistant")
+builder.add_conditional_edges("assistant", tools_condition)
 
-# Streamlit UI Setup
+# Memory saver for checkpointing
+memory = MemorySaver()
+state_graph = builder.compile(checkpointer=memory)
+
+# Streamlit UI
 st.title("Interactive AI Assistant")
-st.write("Ask the AI anything, and it will use tools or provide answers.")
 
-# Initialize session state for thread and conversation
 if "thread_id" not in st.session_state:
     st.session_state.thread_id = str(uuid.uuid4())
 
 if "conversation_history" not in st.session_state:
     st.session_state.conversation_history = []
 
-# User input
 user_question = st.text_input("Please enter your question:")
 
 if user_question:
     st.write(f"User: {user_question}")
-    
-    # Update conversation history with user's question
-    st.session_state.conversation_history.append({"role": "user", "content": user_question})
-    
-    # Prepare the assistant state with messages
+    st.session_state.conversation_history.append(HumanMessage(content=user_question))
+
+    # Prepare the state for the assistant
     state = {"messages": st.session_state.conversation_history}
     config = {"configurable": {"thread_id": st.session_state.thread_id}}
-    
-    # Create an assistant instance and invoke it
-    assistant = Assistant(assistant_runnable)
-    try:
-        result = assistant(state, config)
-        # Get the content directly from the last message (AIMessage object)
-        assistant_message = result["messages"][-1].content
-        st.session_state.conversation_history.append({"role": "assistant", "content": assistant_message})
-        st.write(assistant_message)
-    except Exception as e:
-        st.error(f"An error occurred: {e}")
+
+    events = state_graph.stream({"messages": ("user", user_question)}, config, stream_mode="values")
+
+    for event in events:
+        # Loop through messages from the assistant response
+        for message in event.get("messages", []):
+            if isinstance(message, AIMessage):
+                st.write(message.content)  # Write the AI's message to the Streamlit UI
+                st.session_state.conversation_history.append(AIMessage(content=message.content))  # Append it to conversation history
 
 # Option to start a new conversation
 if st.button("Start New Conversation"):
