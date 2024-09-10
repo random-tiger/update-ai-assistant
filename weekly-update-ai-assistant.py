@@ -20,7 +20,7 @@ tavily_api_key = st.secrets["LANGCHAIN_API_KEY"]
 langchain_tracing_v2 = st.secrets["LANGCHAIN_TRACING_V2"]
 
 # Initialize memory and model
-model = ChatOpenAI(model="gpt-4o", api_key=openai_api_key, tracing_v2=langchain_tracing_v2)
+model = ChatOpenAI(model="gpt-4o", api_key=openai_api_key)
 
 # Define the Tavily search tool
 @tool
