@@ -17,6 +17,7 @@ from langchain_core.messages import AIMessage, HumanMessage  # Import message ty
 # Access secrets for API keys
 openai_api_key = st.secrets["OPENAI_API_KEY"]
 tavily_api_key = st.secrets["TAVILY_API_KEY"]
+tavily_api_key = st.secrets["LANGCHAIN_API_KEY"]
 langchain_tracing_v2 = st.secrets["LANGCHAIN_TRACING_V2"]
 
 # Initialize memory and model
