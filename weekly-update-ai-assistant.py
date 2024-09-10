@@ -3,7 +3,6 @@ import streamlit as st
 import requests
 import pandas as pd
 from io import StringIO
-from datetime import datetime  # Added for time awareness
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
@@ -23,17 +22,14 @@ langchain_tracing_v2 = st.secrets["LANGCHAIN_TRACING_V2"]
 memory = MemorySaver()
 model = ChatOpenAI(model="gpt-4o", api_key=openai_api_key)
 
-# Step 1: Get the current date and time
-current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Capture current date and time
-
-# Step 2: Define the Tavily search tool using @tool decorator
+# Step 1: Define the Tavily search tool using @tool decorator
 @tool
 def search_tavily(query: str) -> str:
     """Search Tavily and return the top results."""
     search = TavilySearchResults(max_results=2)
     return search.run(query)
 
-# Step 3: Define the tool to retrieve CSV, split, embed, and store embeddings
+# Step 2: Define the tool to retrieve CSV, split, embed, and store embeddings
 @tool
 def search_csv_embeddings(query: str) -> str:
     """Fetch CSV data, split, embed, and search embeddings."""
@@ -47,9 +43,7 @@ def search_csv_embeddings(query: str) -> str:
     # Step 2: Parse CSV data
     data = StringIO(response.text)
     df = pd.read_csv(data)
-
-    # Optional: If your CSV has date fields, you can filter based on the current date and query here
-
+    
     # Step 3: Convert each row of the dataframe to a document (e.g., treat each experiment as a document)
     rows = df.apply(lambda row: row.to_string(), axis=1).tolist()
     
@@ -78,7 +72,7 @@ agent_executor = create_react_agent(model, tools, checkpointer=memory)  # Memory
 
 # App title and description
 st.title("Interactive AI Agent with Multiple Tools and Memory")
-st.write(f"Ask the AI anything, and it will retrieve information or answer your question using its available tools. (Current time: {current_time})")
+st.write("Ask the AI anything, and it will retrieve information or answer your question using its available tools.")
 
 # Initialize or retrieve conversation thread ID
 if "thread_id" not in st.session_state:
@@ -93,7 +87,7 @@ if user_question:
     st.write(f"User: {user_question}")
 
     # Prepare the message with the required 'role' and 'content' keys
-    message = {"role": "user", "content": f"{user_question}. Current time: {current_time}"}
+    message = {"role": "user", "content": user_question}
 
     # Include past conversation in the messages if there is any
     past_messages = [{"role": "system", "content": str(msg)} for msg in st.session_state.conversation_history]
