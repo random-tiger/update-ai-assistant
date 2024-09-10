@@ -12,15 +12,15 @@ from langchain.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.tools import tool
 from datetime import datetime
+from langchain_core.messages import AIMessage, HumanMessage  # Import message types
 
 # Access secrets for API keys
 openai_api_key = st.secrets["OPENAI_API_KEY"]
 tavily_api_key = st.secrets["TAVILY_API_KEY"]
-tavily_api_key = st.secrets["LANGCHAIN_API_KEY"]
 langchain_tracing_v2 = st.secrets["LANGCHAIN_TRACING_V2"]
 
 # Initialize memory and model
-model = ChatOpenAI(model="gpt-4o", api_key=openai_api_key)
+model = ChatOpenAI(model="gpt-4o", api_key=openai_api_key, tracing_v2=langchain_tracing_v2)
 
 # Define the Tavily search tool
 @tool
@@ -123,7 +123,8 @@ if user_question:
     assistant = Assistant(assistant_runnable)
     try:
         result = assistant(state, config)
-        assistant_message = result["messages"][-1]["content"]
+        # Get the content directly from the last message (AIMessage object)
+        assistant_message = result["messages"][-1].content
         st.session_state.conversation_history.append({"role": "assistant", "content": assistant_message})
         st.write(assistant_message)
     except Exception as e:
