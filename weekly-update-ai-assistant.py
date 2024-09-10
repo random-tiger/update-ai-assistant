@@ -33,36 +33,38 @@ def search_tavily(query: str) -> str:
 @tool
 def search_csv_embeddings(query: str) -> str:
     """Fetch CSV data, split, embed, and search embeddings."""
-    # Step 2.1: Fetch CSV data
+    # Step 1: Fetch CSV data
     url = "https://app.periscopedata.com/api/adrise:tubi/chart/csv/9609090c-4c3d-e932-06eb-68353433d860/1460174"
     response = requests.get(url)
     
     if response.status_code != 200:
         return "Failed to fetch data from Periscope Data."
 
-    # Step 2.2: Parse CSV data
+    # Step 2: Parse CSV data
     data = StringIO(response.text)
     df = pd.read_csv(data)
     
-    # Step 2.3: Convert dataframe to text and split it into chunks
-    text_data = df.to_string(index=False)
-    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    documents = splitter.create_documents([text_data])
+    # Step 3: Convert each row of the dataframe to a document (e.g., treat each experiment as a document)
+    rows = df.apply(lambda row: row.to_string(), axis=1).tolist()
     
-    # Step 2.4: Embed the chunks using OpenAI embeddings
+    # Step 4: Embed the documents using OpenAI embeddings
     embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
     
-    # Step 2.5: Store embeddings in FAISS
+    # Step 5: Store embeddings in FAISS or another vector database
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    documents = splitter.create_documents(rows)  # Create documents from rows
+    
     vectorstore = FAISS.from_documents(documents, embeddings)
     
-    # Step 2.6: Perform a search over the stored embeddings
+    # Step 6: Perform a search over the stored embeddings
     search_results = vectorstore.similarity_search(query)
     
-    # Step 2.7: Return the top result (or top N results)
+    # Step 7: Return the top result (or top N results) formatted as needed
     if search_results:
-        return search_results[0].page_content
+        # Format the top result, assuming each result is a row representing an experiment
+        return f"Relevant data:\n{search_results[0].page_content}"
     else:
-        return "No relevant data found."
+        return "No relevant data found in the CSV."
 
 # Combine the tools into the agent's available tools
 tools = [search_tavily, search_csv_embeddings]  # Add both tools to the agent's available tools
