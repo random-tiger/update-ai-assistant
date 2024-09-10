@@ -120,7 +120,7 @@ state_graph.add_conditional_edges("assistant", tools_condition)
 state_graph.add_edge("tools", "assistant")
 
 # Compile the graph with memory saving and tracing enabled
-agent_graph = state_graph.compile(checkpointer=memory, tracing_v2=langchain_tracing_v2)
+agent_graph = state_graph.compile(checkpointer=memory)
 
 # Streamlit UI Setup
 st.title("Interactive AI Agent with State and Memory")
