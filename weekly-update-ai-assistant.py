@@ -9,7 +9,7 @@ from langchain.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_openai import ChatOpenAI
-from langgraph.graph import StateGraph, START
+from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import tools_condition
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.prompts import ChatPromptTemplate
@@ -101,10 +101,12 @@ assistant_runnable = primary_assistant_prompt | model.bind_tools(tools)
 # Define the graph
 builder = StateGraph(State)
 builder.add_node("assistant", Assistant(assistant_runnable))
+builder.add_node("tools", tools)
 
 # Define edges for the assistant
 builder.add_edge(START, "assistant")
 builder.add_conditional_edges("assistant", tools_condition)
+builder.add_edge("tools", END)
 
 # Memory saver for checkpointing
 memory = MemorySaver()
