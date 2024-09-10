@@ -8,3 +8,4 @@ langgraph
 openai
 faiss-cpu
 uuid
+tavily-python
