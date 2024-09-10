@@ -12,7 +12,7 @@ from langchain.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.tools import tool
 from langgraph.graph import START, StateGraph, END
-from langgraph.runnables import RunnableLambda
+from langgraph_core.runnables import RunnableLambda
 from langchain_core.messages import ToolMessage
 
 # Access secrets for API keys
