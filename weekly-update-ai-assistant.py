@@ -5,7 +5,7 @@ import pandas as pd
 from io import StringIO
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_openai import ChatOpenAI
-from langgraph.prebuilt import create_react_agent, tools_condition
+from langgraph.prebuilt import create_react_agent, tools_condition, ToolNode  # Import ToolNode
 from langgraph.checkpoint.memory import MemorySaver
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
