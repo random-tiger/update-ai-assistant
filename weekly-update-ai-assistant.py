@@ -5,7 +5,7 @@ import pandas as pd
 from io import StringIO
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_openai import ChatOpenAI
-from langgraph.prebuilt import create_react_agent, tools_condition, ToolNode  # Import ToolNode
+from langgraph.prebuilt import create_react_agent, tools_condition, ToolNode
 from langgraph.checkpoint.memory import MemorySaver
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
@@ -119,8 +119,8 @@ state_graph.add_edge(START, "assistant")
 state_graph.add_conditional_edges("assistant", tools_condition)
 state_graph.add_edge("tools", "assistant")
 
-# Compile the graph with memory saving and tracing enabled
-agent_graph = state_graph.compile(checkpointer=memory, tracing_v2=langchain_tracing_v2)
+# Compile the graph with memory saving enabled (removed tracing_v2)
+agent_graph = state_graph.compile(checkpointer=memory)
 
 # Streamlit UI Setup
 st.title("Interactive AI Agent with State and Memory")
