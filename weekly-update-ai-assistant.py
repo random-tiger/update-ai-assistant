@@ -14,12 +14,15 @@ from langchain.tools import tool
 from langgraph.graph import START, StateGraph, END
 from langchain_core.runnables import RunnableLambda
 from langchain_core.messages import ToolMessage
+from typing import Annotated
+from typing_extensions import TypedDict
+from langgraph.graph.message import AnyMessage, add_messages
 
 # Access secrets for API keys
 openai_api_key = st.secrets["OPENAI_API_KEY"]
 tavily_api_key = st.secrets["TAVILY_API_KEY"]
 langchain_api_key = st.secrets["LANGCHAIN_API_KEY"]
-langchain_tracing_v2 = st.secrets["LANGCHAIN_TRACING_V2"]  # Re-added this
+langchain_tracing_v2 = st.secrets["LANGCHAIN_TRACING_V2"]
 
 # Initialize memory and agent with memory saving and tracing enabled
 memory = MemorySaver()
@@ -100,8 +103,12 @@ class Assistant:
 tools = [search_tavily, search_csv_embeddings]
 llm_assistant = model.bind_tools(tools)
 
-# Step 7: Build the StateGraph for handling assistant interaction with memory and state
-state_graph = StateGraph()
+# Step 7: Define the state schema for the graph
+class State(TypedDict):
+    messages: Annotated[list[AnyMessage], add_messages]
+
+# Step 8: Build the StateGraph for handling assistant interaction with memory and state
+state_graph = StateGraph(State)
 
 # Define the assistant node and tool node
 state_graph.add_node("assistant", Assistant(llm_assistant))
