@@ -92,7 +92,7 @@ primary_assistant_prompt = ChatPromptTemplate.from_messages(
     ]
 ).partial(time=datetime.now())
 
-# Define the tools
+# Define the tools within the assistant logic
 tools = [search_tavily, search_csv_embeddings]
 
 # Assistant runnable
@@ -101,12 +101,9 @@ assistant_runnable = primary_assistant_prompt | model.bind_tools(tools)
 # Define the graph
 builder = StateGraph(State)
 builder.add_node("assistant", Assistant(assistant_runnable))
-builder.add_node("tools", tools)
 
 # Define edges for the assistant
 builder.add_edge(START, "assistant")
-builder.add_conditional_edges("assistant", tools_condition)
-builder.add_edge("tools", END)
 
 # Memory saver for checkpointing
 memory = MemorySaver()
