@@ -5,18 +5,15 @@ import pandas as pd
 from io import StringIO
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_openai import ChatOpenAI
-from langgraph.prebuilt import create_react_agent, tools_condition, ToolNode  # Import ToolNode
+from langgraph.prebuilt import create_react_agent, tools_condition
 from langgraph.checkpoint.memory import MemorySaver
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.tools import tool
 from langgraph.graph import START, StateGraph, END
-from langchain_core.runnables import RunnableLambda
+from langgraph.runnables import RunnableLambda
 from langchain_core.messages import ToolMessage
-from typing import Annotated
-from typing_extensions import TypedDict
-from langgraph.graph.message import AnyMessage, add_messages
 
 # Access secrets for API keys
 openai_api_key = st.secrets["OPENAI_API_KEY"]
@@ -24,7 +21,7 @@ tavily_api_key = st.secrets["TAVILY_API_KEY"]
 langchain_api_key = st.secrets["LANGCHAIN_API_KEY"]
 langchain_tracing_v2 = st.secrets["LANGCHAIN_TRACING_V2"]
 
-# Initialize memory and agent with memory saving and tracing enabled
+# Initialize memory and agent with memory saving
 memory = MemorySaver()
 model = ChatOpenAI(model="gpt-4o", api_key=openai_api_key)
 
@@ -103,12 +100,8 @@ class Assistant:
 tools = [search_tavily, search_csv_embeddings]
 llm_assistant = model.bind_tools(tools)
 
-# Step 7: Define the state schema for the graph
-class State(TypedDict):
-    messages: Annotated[list[AnyMessage], add_messages]
-
-# Step 8: Build the StateGraph for handling assistant interaction with memory and state
-state_graph = StateGraph(State)
+# Step 7: Build the StateGraph for handling assistant interaction with memory and state
+state_graph = StateGraph()
 
 # Define the assistant node and tool node
 state_graph.add_node("assistant", Assistant(llm_assistant))
@@ -119,7 +112,7 @@ state_graph.add_edge(START, "assistant")
 state_graph.add_conditional_edges("assistant", tools_condition)
 state_graph.add_edge("tools", "assistant")
 
-# Compile the graph with memory saving and tracing enabled
+# Compile the graph with memory saving
 agent_graph = state_graph.compile(checkpointer=memory)
 
 # Streamlit UI Setup
