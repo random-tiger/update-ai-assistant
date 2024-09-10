@@ -74,12 +74,11 @@ class Assistant:
         while True:
             result = self.runnable.invoke(state)
             
-            # Re-prompt if no result is found
-            if not result.tool_calls and (not result.content or isinstance(result.content, list) and not result.content[0].get("text")):
-                state["messages"].append(HumanMessage(content="Respond with a real output."))
-            else:
-                break
-        return result
+            # Ensure the assistant's response is appended to the messages
+            if result and isinstance(result, AIMessage):
+                state["messages"].append(result)
+            break
+        return state
 
 # Define the Primary Prompt Template (without user_info)
 primary_assistant_prompt = ChatPromptTemplate.from_messages(
@@ -130,8 +129,8 @@ if user_question:
     state = {"messages": st.session_state.conversation_history}
     config = {"configurable": {"thread_id": st.session_state.thread_id}}
 
+    # Pass a list of HumanMessage objects to messages
     events = state_graph.stream({"messages": [HumanMessage(content=user_question)]}, config, stream_mode="values")
-
 
     for event in events:
         # Loop through messages from the assistant response
