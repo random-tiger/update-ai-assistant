@@ -3,6 +3,7 @@ import streamlit as st
 import requests
 import pandas as pd
 from io import StringIO
+from datetime import datetime, timedelta
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
@@ -22,14 +23,17 @@ langchain_tracing_v2 = st.secrets["LANGCHAIN_TRACING_V2"]
 memory = MemorySaver()
 model = ChatOpenAI(model="gpt-4o", api_key=openai_api_key)
 
-# Step 1: Define the Tavily search tool using @tool decorator
+# Step 1: Get today's date and add it to the assistant's context
+today = datetime.today().strftime('%Y-%m-%d')
+
+# Step 2: Define the Tavily search tool using @tool decorator
 @tool
 def search_tavily(query: str) -> str:
     """Search Tavily and return the top results."""
     search = TavilySearchResults(max_results=2)
     return search.run(query)
 
-# Step 2: Define the tool to retrieve CSV, split, embed, and store embeddings
+# Step 3: Define the tool to retrieve CSV, split, embed, and store embeddings
 @tool
 def search_csv_embeddings(query: str) -> str:
     """Fetch CSV data, split, embed, and search embeddings."""
@@ -43,8 +47,11 @@ def search_csv_embeddings(query: str) -> str:
     # Step 2: Parse CSV data
     data = StringIO(response.text)
     df = pd.read_csv(data)
+
+    # If the CSV has date information, you can directly work with date columns here.
+    # Just ensure the assistant knows today's date for context when processing queries.
     
-    # Step 3: Convert each row of the dataframe to a document (e.g., treat each experiment as a document)
+    # Step 3: Convert each row of the dataframe to a document
     rows = df.apply(lambda row: row.to_string(), axis=1).tolist()
     
     # Step 4: Embed the documents using OpenAI embeddings
@@ -61,33 +68,27 @@ def search_csv_embeddings(query: str) -> str:
     
     # Step 7: Return the top result (or top N results) formatted as needed
     if search_results:
-        # Format the top result, assuming each result is a row representing an experiment
+        # Format the top result
         return f"Relevant data:\n{search_results[0].page_content}"
     else:
         return "No relevant data found in the CSV."
 
 # Combine the tools into the agent's available tools
 tools = [search_tavily, search_csv_embeddings]  # Add both tools to the agent's available tools
-agent_executor = create_react_agent(model, tools, checkpointer=memory)  # Memory checkpointer is added back
+agent_executor = create_react_agent(model, tools, checkpointer=memory)
 
 # App title and description
-st.title("Interactive AI Agent with Multiple Tools and Memory")
+st.title("Interactive AI Agent with Time Awareness")
 st.write("Ask the AI anything, and it will retrieve information or answer your question using its available tools.")
 
-# Initialize or retrieve conversation thread ID
-if "thread_id" not in st.session_state:
-    st.session_state.thread_id = str(uuid.uuid4())  # Generate new thread ID
-if "conversation_history" not in st.session_state:
-    st.session_state.conversation_history = []  # Initialize conversation history
-
 # User input section
-user_question = st.text_input("Please enter your question (e.g., 'what is the weather in SF'):")
+user_question = st.text_input(f"Please enter your question (e.g., 'data from a week ago'). Today's date is {today}:")
 
 if user_question:
     st.write(f"User: {user_question}")
 
     # Prepare the message with the required 'role' and 'content' keys
-    message = {"role": "user", "content": user_question}
+    message = {"role": "user", "content": f"{user_question}. Today's date is {today}"}
 
     # Include past conversation in the messages if there is any
     past_messages = [{"role": "system", "content": str(msg)} for msg in st.session_state.conversation_history]
@@ -96,8 +97,8 @@ if user_question:
     # Set the configuration required by the memory checkpointer
     config = {
         "configurable": {
-            "thread_id": st.session_state.thread_id,  # Use the stored thread ID for checkpointing
-            "checkpoint_id": str(uuid.uuid4()),  # Generate a unique checkpoint ID for each interaction
+            "thread_id": st.session_state.thread_id,
+            "checkpoint_id": str(uuid.uuid4()),
         }
     }
 
@@ -106,16 +107,11 @@ if user_question:
         for chunk in agent_executor.stream(
             {"messages": past_messages, "thread_id": st.session_state.thread_id}, config
         ):
-            # Debug: Print the structure of chunk to identify its keys
-            st.write(chunk)  # Display the full chunk to inspect its structure
-
-            # Extract the 'AIMessage' content for the response
+            st.write(chunk)
             agent_message = chunk["agent"]["messages"][0] if "agent" in chunk and "messages" in chunk["agent"] else "No content found"
-
-            # Store the response in conversation history
-            st.session_state.conversation_history.append(user_question)  # Add user question
-            st.session_state.conversation_history.append(agent_message)  # Add agent response
-            st.write(agent_message)  # Display the agent's response
+            st.session_state.conversation_history.append(user_question)
+            st.session_state.conversation_history.append(agent_message)
+            st.write(agent_message)
             st.write("----")
     except Exception as e:
         st.error(f"An error occurred: {e}")
