@@ -130,7 +130,8 @@ if user_question:
     state = {"messages": st.session_state.conversation_history}
     config = {"configurable": {"thread_id": st.session_state.thread_id}}
 
-    events = state_graph.stream({"messages": ("user", user_question)}, config, stream_mode="values")
+    events = state_graph.stream({"messages": [HumanMessage(content=user_question)]}, config, stream_mode="values")
+
 
     for event in events:
         # Loop through messages from the assistant response
