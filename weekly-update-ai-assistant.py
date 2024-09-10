@@ -47,7 +47,9 @@ def search_csv_embeddings(query: str) -> str:
     # Step 2: Parse CSV data
     data = StringIO(response.text)
     df = pd.read_csv(data)
-    
+
+    # Optional: If your CSV has date fields, you can filter based on the current date and query here
+
     # Step 3: Convert each row of the dataframe to a document (e.g., treat each experiment as a document)
     rows = df.apply(lambda row: row.to_string(), axis=1).tolist()
     
