@@ -5,37 +5,31 @@ import pandas as pd
 from io import StringIO
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_openai import ChatOpenAI
-from langgraph.prebuilt import create_react_agent, tools_condition, ToolNode
-from langgraph.checkpoint.memory import MemorySaver
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import Runnable, RunnableConfig
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.tools import tool
-from langgraph.graph import START, StateGraph, END
-from langchain_core.runnables import RunnableLambda
-from langchain_core.messages import ToolMessage, HumanMessage, AIMessage  # Import message types
-from typing import Annotated
-from typing_extensions import TypedDict
-from langgraph.graph.message import AnyMessage, add_messages
+from datetime import datetime
 
 # Access secrets for API keys
 openai_api_key = st.secrets["OPENAI_API_KEY"]
 tavily_api_key = st.secrets["TAVILY_API_KEY"]
-langchain_api_key = st.secrets["LANGCHAIN_API_KEY"]
+tavily_api_key = st.secrets["LANGCHAIN_API_KEY"]
 langchain_tracing_v2 = st.secrets["LANGCHAIN_TRACING_V2"]
 
-# Initialize memory and agent with memory saving and tracing enabled
-memory = MemorySaver()
+# Initialize memory and model
 model = ChatOpenAI(model="gpt-4o", api_key=openai_api_key, tracing_v2=langchain_tracing_v2)
 
-# Step 1: Define the Tavily search tool
+# Define the Tavily search tool
 @tool
 def search_tavily(query: str) -> str:
     """Search Tavily and return the top results."""
     search = TavilySearchResults(max_results=2)
     return search.run(query)
 
-# Step 2: Define the tool to retrieve CSV, split, embed, and store embeddings
+# Define the tool to retrieve CSV, split, embed, and search embeddings
 @tool
 def search_csv_embeddings(query: str) -> str:
     """Fetch CSV data, split, embed, and search embeddings."""
@@ -64,105 +58,78 @@ def search_csv_embeddings(query: str) -> str:
     else:
         return "No relevant data found in the CSV."
 
-# Step 3: Handle tool error fallback
-def handle_tool_error(state) -> dict:
-    error = state.get("error")
-    tool_calls = state["messages"][-1].tool_calls
-    return {
-        "messages": [
-            ToolMessage(
-                content=f"Error: {repr(error)}\n please fix your mistakes.",
-                tool_call_id=tc["id"],
-            )
-            for tc in tool_calls
-        ]
-    }
+# Prompt template to structure the conversation
+primary_assistant_prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            "You are a helpful assistant. Use the provided tools to search for information. "
+            "If no results are found, persistently expand the query bounds."
+            "\n\nCurrent user:\n\n{user_info}\n"
+            "\nCurrent time: {time}.",
+        ),
+        ("placeholder", "{messages}"),
+    ]
+).partial(time=datetime.now())
 
-# Step 4: Create tool node with fallback
-def create_tool_node_with_fallback(tools: list) -> dict:
-    return ToolNode(tools).with_fallbacks(
-        [RunnableLambda(handle_tool_error)], exception_key="error"
-    )
+# Combine tools into a runnable assistant
+tools = [search_tavily, search_csv_embeddings]
+assistant_runnable = primary_assistant_prompt | model.bind_tools(tools)
 
-# Step 5: Define the main assistant
+# Assistant class
 class Assistant:
-    def __init__(self, runnable):
+    def __init__(self, runnable: Runnable):
         self.runnable = runnable
 
-    def __call__(self, state, config):
+    def __call__(self, state, config: RunnableConfig):
         while True:
+            configuration = config.get("configurable", {})
+            state = {**state, "user_info": configuration.get("user_info", None)}
             result = self.runnable.invoke(state)
-            if not result.tool_calls and (not result.content):
+            
+            # Check if result is empty or needs re-prompting
+            if not result.tool_calls and (not result.content or isinstance(result.content, list) and not result.content[0].get("text")):
                 messages = state["messages"] + [("user", "Respond with a real output.")]
                 state = {**state, "messages": messages}
             else:
                 break
         return {"messages": result}
 
-# Step 6: Combine tools into the assistant
-tools = [search_tavily, search_csv_embeddings]
-llm_assistant = model.bind_tools(tools)
-
-# Step 7: Define the state schema for the graph
-class State(TypedDict):
-    messages: Annotated[list[AnyMessage], add_messages]
-
-# Step 8: Build the StateGraph for handling assistant interaction with memory and state
-state_graph = StateGraph(State)
-
-# Define the assistant node and tool node
-state_graph.add_node("assistant", Assistant(llm_assistant))
-state_graph.add_node("tools", create_tool_node_with_fallback(tools))
-
-# Define the flow from assistant to tools and back
-state_graph.add_edge(START, "assistant")
-state_graph.add_conditional_edges("assistant", tools_condition)
-state_graph.add_edge("tools", "assistant")
-
-# Compile the graph with memory saving enabled (removed tracing_v2)
-agent_graph = state_graph.compile(checkpointer=memory)
-
 # Streamlit UI Setup
-st.title("Interactive AI Agent with State and Memory")
-st.write("Ask the AI anything, and it will retrieve information or answer your question using its available tools.")
+st.title("Interactive AI Assistant")
+st.write("Ask the AI anything, and it will use tools or provide answers.")
 
+# Initialize session state for thread and conversation
 if "thread_id" not in st.session_state:
     st.session_state.thread_id = str(uuid.uuid4())
 
 if "conversation_history" not in st.session_state:
     st.session_state.conversation_history = []
 
-# Convert conversation history to the correct format (HumanMessage or AIMessage)
-def format_conversation_history(conversation_history):
-    messages = []
-    for entry in conversation_history:
-        if entry["role"] == "user":
-            messages.append(HumanMessage(content=entry["content"]))
-        elif entry["role"] == "assistant":
-            messages.append(AIMessage(content=entry["content"]))
-    return messages
-
+# User input
 user_question = st.text_input("Please enter your question:")
 
 if user_question:
     st.write(f"User: {user_question}")
-
-    # Append the user question to the conversation history
-    st.session_state.conversation_history.append({"role": "user", "content": user_question})
-
-    # Format the conversation history properly
-    messages = format_conversation_history(st.session_state.conversation_history)
     
+    # Update conversation history with user's question
+    st.session_state.conversation_history.append({"role": "user", "content": user_question})
+    
+    # Prepare the assistant state with messages
+    state = {"messages": st.session_state.conversation_history}
     config = {"configurable": {"thread_id": st.session_state.thread_id}}
-
+    
+    # Create an assistant instance and invoke it
+    assistant = Assistant(assistant_runnable)
     try:
-        result = agent_graph.invoke({"messages": messages}, config)
-        agent_message = result["messages"][-1]["content"]
-        st.session_state.conversation_history.append({"role": "assistant", "content": agent_message})
-        st.write(agent_message)
+        result = assistant(state, config)
+        assistant_message = result["messages"][-1]["content"]
+        st.session_state.conversation_history.append({"role": "assistant", "content": assistant_message})
+        st.write(assistant_message)
     except Exception as e:
         st.error(f"An error occurred: {e}")
 
+# Option to start a new conversation
 if st.button("Start New Conversation"):
     st.session_state.thread_id = str(uuid.uuid4())
     st.session_state.conversation_history.clear()
