@@ -81,14 +81,13 @@ class Assistant:
                 break
         return result
 
-# Define the Primary Prompt Template
+# Define the Primary Prompt Template (without user_info)
 primary_assistant_prompt = ChatPromptTemplate.from_messages(
     [
         (
             "system",
             "You are a helpful assistant. Use the provided tools to search for information."
-            "\n\nCurrent user:\n\n{user_info}\n"
-            "\nCurrent time: {time}.",
+            "\n\nCurrent time: {time}.",
         ),
         ("placeholder", "{messages}"),
     ]
