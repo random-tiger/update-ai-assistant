@@ -87,6 +87,10 @@ def format_agent_response_llm(response: str) -> str:
         # Send the prompt to the GPT-4o model and extract the response
         llm_response = model.invoke(messages)  # Use invoke for GPT-4o
         
+        # Check if the content exists in the response
+        if not llm_response or not hasattr(llm_response, 'content'):
+            return "Failed to retrieve reformatted response."
+        
         # Extract the reformatted response from the model's output
         reformatted_response = llm_response.content.strip()
     
