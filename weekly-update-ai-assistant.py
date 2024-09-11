@@ -7,11 +7,10 @@ from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import MemorySaver
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import FAISS
+from langchain_community.embeddings import OpenAIEmbeddings  # Updated import
+from langchain_community.vectorstores import FAISS  # Updated import
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.tools import tool
-import re
 
 # Access secrets for API keys
 openai_api_key = st.secrets["OPENAI_API_KEY"]
@@ -23,57 +22,47 @@ langchain_tracing_v2 = st.secrets["LANGCHAIN_TRACING_V2"]
 memory = MemorySaver()
 model = ChatOpenAI(model="gpt-4o", api_key=openai_api_key)
 
-# Step 1: Define the Tavily search tool using @tool decorator
+# Define the Tavily search tool
 @tool
 def search_tavily(query: str) -> str:
     """Search Tavily and return the top results."""
     search = TavilySearchResults(max_results=2)
     return search.run(query)
 
-# Step 2: Define the tool to retrieve CSV, split, embed, and store embeddings
+# Define the tool to retrieve CSV, split, embed, and store embeddings
 @tool
 def search_tubi_launches_embeddings(query: str) -> str:
     """Fetch CSV data, split, embed, and search embeddings."""
-    # Step 1: Fetch CSV data
     url = "https://app.periscopedata.com/api/adrise:tubi/chart/csv/9609090c-4c3d-e932-06eb-68353433d860/1460174"
     response = requests.get(url)
     
     if response.status_code != 200:
         return "Failed to fetch data from Periscope Data."
 
-    # Step 2: Parse CSV data
     data = StringIO(response.text)
     df = pd.read_csv(data)
     
-    # Step 3: Convert each row of the dataframe to a document (e.g., treat each experiment as a document)
     rows = df.apply(lambda row: row.to_string(), axis=1).tolist()
-    
-    # Step 4: Embed the documents using OpenAI embeddings
     embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
     
-    # Step 5: Store embeddings in FAISS or another vector database
     splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    documents = splitter.create_documents(rows)  # Create documents from rows
+    documents = splitter.create_documents(rows)
     
     vectorstore = FAISS.from_documents(documents, embeddings)
     
-    # Step 6: Perform a search over the stored embeddings
     search_results = vectorstore.similarity_search(query)
     
-    # Step 7: Return the top result (or top N results) formatted as needed
     if search_results:
-        # Format the top result, assuming each result is a row representing an experiment
         return f"Relevant data:\n{search_results[0].page_content}"
     else:
         return "No relevant data found in the CSV."
 
-# Step 3: Define the tool to reformat responses based on the style guide
+# Define the tool to reformat responses based on the style guide
 @tool
 def format_agent_response_llm(response: str) -> str:
     """Use the LLM to reformat the agent's response based on a style guide."""
     
-    # Step 1: Fetch the style guide from GitHub or a local file
-    style_guide_url = "https://github.com/random-tiger/update-ai-assistant/blob/8461df9e766091f1790ac3e52d0f75a02ca680ba/style-guide.md"
+    style_guide_url = "https://github.com/random-tiger/update-ai-assistant/raw/3f69cfd7f15542d1783f1c083259a86e5bf43016/style-guide.md"
     style_guide_response = requests.get(style_guide_url)
     
     if style_guide_response.status_code != 200:
@@ -81,8 +70,6 @@ def format_agent_response_llm(response: str) -> str:
     
     style_guide = style_guide_response.text
     
-    # Step 2: Use the LLM to apply the style guide to the agent's response
-    # Instead of regex, prompt the LLM to format the response based on the style guide
     llm_prompt = f"""
     Below is a response from an AI assistant:
     
@@ -97,15 +84,13 @@ def format_agent_response_llm(response: str) -> str:
     Reformatted Response:
     """
     
-    # Use the same LLM to process the response (you can customize this with ChatOpenAI or another model)
     reformatted_response = model({"prompt": llm_prompt})["choices"][0]["text"].strip()
     
     return reformatted_response
 
-
 # Combine the tools into the agent's available tools
-tools = [search_tavily, search_tubi_launches_embeddings, format_agent_response]  # Add both tools to the agent's available tools
-agent_executor = create_react_agent(model, tools, checkpointer=memory)  # Memory checkpointer is added back
+tools = [search_tavily, search_tubi_launches_embeddings, format_agent_response_llm]  # Updated the function name here
+agent_executor = create_react_agent(model, tools, checkpointer=memory)
 
 # App title and description
 st.title("Interactive AI Agent with Multiple Tools and Memory")
@@ -113,9 +98,9 @@ st.write("Ask the AI anything, and it will retrieve information or answer your q
 
 # Initialize or retrieve conversation thread ID
 if "thread_id" not in st.session_state:
-    st.session_state.thread_id = str(uuid.uuid4())  # Generate new thread ID
+    st.session_state.thread_id = str(uuid.uuid4())
 if "conversation_history" not in st.session_state:
-    st.session_state.conversation_history = []  # Initialize conversation history
+    st.session_state.conversation_history = []
 
 # User input section
 user_question = st.text_input("Please enter your question (e.g., 'what is the weather in SF'):")
@@ -123,50 +108,39 @@ user_question = st.text_input("Please enter your question (e.g., 'what is the we
 if user_question:
     st.write(f"User: {user_question}")
 
-    # Prepare the message with the required 'role' and 'content' keys
     message = {"role": "user", "content": user_question}
-
-    # Include past conversation in the messages if there is any
     past_messages = [{"role": "system", "content": str(msg)} for msg in st.session_state.conversation_history]
     past_messages.append(message)
 
-    # Set the configuration required by the memory checkpointer
     config = {
         "configurable": {
-            "thread_id": st.session_state.thread_id,  # Use the stored thread ID for checkpointing
-            "checkpoint_id": str(uuid.uuid4()),  # Generate a unique checkpoint ID for each interaction
+            "thread_id": st.session_state.thread_id,
+            "checkpoint_id": str(uuid.uuid4()),
         }
     }
 
-    # Execute the agent and stream results
     try:
         for chunk in agent_executor.stream(
             {"messages": past_messages, "thread_id": st.session_state.thread_id}, config
         ):
-            # Debug: Print the structure of chunk to identify its keys
-            st.write(chunk)  # Display the full chunk to inspect its structure
-
-            # Extract the 'AIMessage' content for the response
+            st.write(chunk)
             agent_message = chunk["agent"]["messages"][0] if "agent" in chunk and "messages" in chunk["agent"] else "No content found"
             
-            # Reformat the response based on the style guide
-            formatted_message = format_agent_response(agent_message)
-
-            # Store the response in conversation history
-            st.session_state.conversation_history.append(user_question)  # Add user question
-            st.session_state.conversation_history.append(formatted_message)  # Add agent response
-            st.write(formatted_message)  # Display the agent's reformatted response
+            # Reformat the response using the LLM-based tool
+            formatted_message = format_agent_response_llm(agent_message)
+            
+            st.session_state.conversation_history.append(user_question)
+            st.session_state.conversation_history.append(formatted_message)
+            st.write(formatted_message)
             st.write("----")
     except Exception as e:
         st.error(f"An error occurred: {e}")
 
-# Option to start a new conversation
 if st.button("Start New Conversation"):
-    st.session_state.thread_id = str(uuid.uuid4())  # Generate new thread ID
-    st.session_state.conversation_history.clear()  # Clear conversation history
+    st.session_state.thread_id = str(uuid.uuid4())
+    st.session_state.conversation_history.clear()
     st.write(f"New thread ID: {st.session_state.thread_id}")
 
-# Display past conversation
 st.write("## Conversation History")
 for message in st.session_state.conversation_history:
     st.write(message)
