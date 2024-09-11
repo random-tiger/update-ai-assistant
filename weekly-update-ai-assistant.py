@@ -60,8 +60,9 @@ def search_tubi_launches_embeddings(query: str) -> str:
 # Define the tool to reformat responses based on the style guide
 @tool
 def format_agent_response_llm(response: str) -> str:
-    """Use the LLM to reformat the agent's response based on a style guide."""
+    """Use GPT-4o to reformat the agent's response based on a style guide."""
     
+    # Step 1: Fetch the style guide from GitHub or a local file
     style_guide_url = "https://github.com/random-tiger/update-ai-assistant/raw/3f69cfd7f15542d1783f1c083259a86e5bf43016/style-guide.md"
     style_guide_response = requests.get(style_guide_url)
     
@@ -70,6 +71,7 @@ def format_agent_response_llm(response: str) -> str:
     
     style_guide = style_guide_response.text
     
+    # Step 2: Use GPT-4o to apply the style guide to the agent's response
     llm_prompt = f"""
     Below is a response from an AI assistant:
     
@@ -84,9 +86,21 @@ def format_agent_response_llm(response: str) -> str:
     Reformatted Response:
     """
     
-    reformatted_response = model({"prompt": llm_prompt})["choices"][0]["text"].strip()
+    # Ensure the correct method is used for GPT-4o
+    try:
+        # Send the prompt to the GPT-4o model and extract the response
+        llm_response = model.generate_messages(messages=[{"role": "user", "content": llm_prompt}])
+        
+        # Extract the reformatted response from the model's output
+        reformatted_response = llm_response['choices'][0]['message']['content'].strip()
+    
+    except KeyError:
+        return "Failed to generate reformatted response due to missing fields in GPT-4o output."
+    except Exception as e:
+        return f"An error occurred while generating the response: {e}"
     
     return reformatted_response
+
 
 # Combine the tools into the agent's available tools
 tools = [search_tavily, search_tubi_launches_embeddings, format_agent_response_llm]  # Updated the function name here
