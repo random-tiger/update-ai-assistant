@@ -31,7 +31,7 @@ def search_tavily(query: str) -> str:
 
 # Step 2: Define the tool to retrieve CSV, split, embed, and store embeddings
 @tool
-def search_csv_embeddings(query: str) -> str:
+def search_tubi_launches_embeddings(query: str) -> str:
     """Fetch CSV data, split, embed, and search embeddings."""
     # Step 1: Fetch CSV data
     url = "https://app.periscopedata.com/api/adrise:tubi/chart/csv/9609090c-4c3d-e932-06eb-68353433d860/1460174"
@@ -67,7 +67,7 @@ def search_csv_embeddings(query: str) -> str:
         return "No relevant data found in the CSV."
 
 # Combine the tools into the agent's available tools
-tools = [search_tavily, search_csv_embeddings]  # Add both tools to the agent's available tools
+tools = [search_tavily, search_tubi_launches_embeddings]  # Add both tools to the agent's available tools
 agent_executor = create_react_agent(model, tools, checkpointer=memory)  # Memory checkpointer is added back
 
 # App title and description
