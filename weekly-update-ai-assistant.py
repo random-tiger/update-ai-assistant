@@ -7,8 +7,8 @@ from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import MemorySaver
-from langchain_community.embeddings import OpenAIEmbeddings  # Updated import
-from langchain_community.vectorstores import FAISS  # Updated import
+from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.tools import tool
 
@@ -67,7 +67,6 @@ def search_tubi_launches_embeddings(query: str) -> str:
 def format_agent_response_llm(response: str) -> str:
     """Use GPT-4o to reformat the agent's response based on a style guide."""
     
-    # Step 1: Fetch the style guide from GitHub or a local file
     style_guide_url = "https://github.com/random-tiger/update-ai-assistant/blob/4a88633024230c16090de5208227646e05bdee20/style-guide.md"
     style_guide_response = requests.get(style_guide_url)
     
@@ -76,22 +75,17 @@ def format_agent_response_llm(response: str) -> str:
     
     style_guide = style_guide_response.text
     
-    # Step 2: Use GPT-4o to apply the style guide to the agent's response
     messages = [
         {"role": "system", "content": f"Below is a style guide:\n\n{style_guide}"},
         {"role": "user", "content": f"Here is the agent's response:\n\n{response}\n\nReformat it to adhere to the style guide."}
     ]
     
-    # Ensure the correct method is used for GPT-4o
     try:
-        # Send the prompt to the GPT-4o model and extract the response
-        llm_response = model.invoke(messages)  # Use invoke for GPT-4o
+        llm_response = model.invoke(messages)
         
-        # Check if the content exists in the response
         if not llm_response or not hasattr(llm_response, 'content'):
             return "Failed to retrieve reformatted response."
         
-        # Extract the reformatted response from the model's output
         reformatted_response = llm_response.content.strip()
     
     except KeyError:
@@ -139,12 +133,14 @@ if user_question:
             st.write(chunk)
             agent_message = chunk["agent"]["messages"][0] if "agent" in chunk and "messages" in chunk["agent"] else "No content found"
             
-            # Reformat the response using the LLM-based tool
-            formatted_message = format_agent_response_llm(agent_message)
-            
-            st.session_state.conversation_history.append(user_question)
-            st.session_state.conversation_history.append(formatted_message)
-            st.write(formatted_message)
+            # Check if agent_message has valid content
+            if isinstance(agent_message, str) and agent_message:
+                formatted_message = format_agent_response_llm(agent_message)
+                st.session_state.conversation_history.append(user_question)
+                st.session_state.conversation_history.append(formatted_message)
+                st.write(formatted_message)
+            else:
+                st.write("No valid response from the agent.")
             st.write("----")
     except Exception as e:
         st.error(f"An error occurred: {e}")
