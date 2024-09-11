@@ -20,7 +20,12 @@ langchain_tracing_v2 = st.secrets["LANGCHAIN_TRACING_V2"]
 
 # Initialize memory and agent
 memory = MemorySaver()
-model = ChatOpenAI(model="gpt-4o", api_key=openai_api_key)
+model = ChatOpenAI(
+    model="gpt-4o",
+    api_key=openai_api_key,
+    temperature=0,
+    max_tokens=500
+)
 
 # Define the Tavily search tool
 @tool
@@ -72,30 +77,18 @@ def format_agent_response_llm(response: str) -> str:
     style_guide = style_guide_response.text
     
     # Step 2: Use GPT-4o to apply the style guide to the agent's response
-    llm_prompt = f"""
-    Below is a response from an AI assistant:
-    
-    Response:
-    {response}
-    
-    Based on the following style guide, reformat the response so it conforms to the specified rules.
-    
-    Style Guide:
-    {style_guide}
-    
-    Reformatted Response:
-    """
+    messages = [
+        {"role": "system", "content": f"Below is a style guide:\n\n{style_guide}"},
+        {"role": "user", "content": f"Here is the agent's response:\n\n{response}\n\nReformat it to adhere to the style guide."}
+    ]
     
     # Ensure the correct method is used for GPT-4o
     try:
         # Send the prompt to the GPT-4o model and extract the response
-        llm_response = model({"prompt": llm_prompt})  # Adjusted method for GPT-4o
+        llm_response = model.invoke(messages)  # Use invoke for GPT-4o
         
-        # Check if 'choices' is present in the response
-        if "choices" in llm_response and llm_response['choices']:
-            reformatted_response = llm_response['choices'][0]['message']['content'].strip()
-        else:
-            return "No valid response from GPT-4o."
+        # Extract the reformatted response from the model's output
+        reformatted_response = llm_response.content.strip()
     
     except KeyError:
         return "Failed to generate reformatted response due to missing fields in GPT-4o output."
@@ -104,9 +97,8 @@ def format_agent_response_llm(response: str) -> str:
     
     return reformatted_response
 
-
 # Combine the tools into the agent's available tools
-tools = [search_tavily, search_tubi_launches_embeddings, format_agent_response_llm]  # Updated the function name here
+tools = [search_tavily, search_tubi_launches_embeddings, format_agent_response_llm]
 agent_executor = create_react_agent(model, tools, checkpointer=memory)
 
 # App title and description
