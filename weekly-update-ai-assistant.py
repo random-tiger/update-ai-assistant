@@ -89,10 +89,13 @@ def format_agent_response_llm(response: str) -> str:
     # Ensure the correct method is used for GPT-4o
     try:
         # Send the prompt to the GPT-4o model and extract the response
-        llm_response = model.generate_messages(messages=[{"role": "user", "content": llm_prompt}])
+        llm_response = model({"prompt": llm_prompt})  # Adjusted method for GPT-4o
         
-        # Extract the reformatted response from the model's output
-        reformatted_response = llm_response['choices'][0]['message']['content'].strip()
+        # Check if 'choices' is present in the response
+        if "choices" in llm_response and llm_response['choices']:
+            reformatted_response = llm_response['choices'][0]['message']['content'].strip()
+        else:
+            return "No valid response from GPT-4o."
     
     except KeyError:
         return "Failed to generate reformatted response due to missing fields in GPT-4o output."
