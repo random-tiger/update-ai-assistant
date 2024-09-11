@@ -11,6 +11,7 @@ from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.tools import tool
+import re
 
 # Access secrets for API keys
 openai_api_key = st.secrets["OPENAI_API_KEY"]
@@ -66,8 +67,44 @@ def search_tubi_launches_embeddings(query: str) -> str:
     else:
         return "No relevant data found in the CSV."
 
+# Step 3: Define the tool to reformat responses based on the style guide
+@tool
+def format_agent_response_llm(response: str) -> str:
+    """Use the LLM to reformat the agent's response based on a style guide."""
+    
+    # Step 1: Fetch the style guide from GitHub or a local file
+    style_guide_url = "https://github.com/random-tiger/update-ai-assistant/raw/3f69cfd7f15542d1783f1c083259a86e5bf43016/style-guide.md"
+    style_guide_response = requests.get(style_guide_url)
+    
+    if style_guide_response.status_code != 200:
+        return "Failed to retrieve the style guide."
+    
+    style_guide = style_guide_response.text
+    
+    # Step 2: Use the LLM to apply the style guide to the agent's response
+    # Instead of regex, prompt the LLM to format the response based on the style guide
+    llm_prompt = f"""
+    Below is a response from an AI assistant:
+    
+    Response:
+    {response}
+    
+    Based on the following style guide, reformat the response so it conforms to the specified rules.
+    
+    Style Guide:
+    {style_guide}
+    
+    Reformatted Response:
+    """
+    
+    # Use the same LLM to process the response (you can customize this with ChatOpenAI or another model)
+    reformatted_response = model({"prompt": llm_prompt})["choices"][0]["text"].strip()
+    
+    return reformatted_response
+
+
 # Combine the tools into the agent's available tools
-tools = [search_tavily, search_tubi_launches_embeddings]  # Add both tools to the agent's available tools
+tools = [search_tavily, search_tubi_launches_embeddings, format_agent_response]  # Add both tools to the agent's available tools
 agent_executor = create_react_agent(model, tools, checkpointer=memory)  # Memory checkpointer is added back
 
 # App title and description
@@ -111,11 +148,14 @@ if user_question:
 
             # Extract the 'AIMessage' content for the response
             agent_message = chunk["agent"]["messages"][0] if "agent" in chunk and "messages" in chunk["agent"] else "No content found"
+            
+            # Reformat the response based on the style guide
+            formatted_message = format_agent_response(agent_message)
 
             # Store the response in conversation history
             st.session_state.conversation_history.append(user_question)  # Add user question
-            st.session_state.conversation_history.append(agent_message)  # Add agent response
-            st.write(agent_message)  # Display the agent's response
+            st.session_state.conversation_history.append(formatted_message)  # Add agent response
+            st.write(formatted_message)  # Display the agent's reformatted response
             st.write("----")
     except Exception as e:
         st.error(f"An error occurred: {e}")
