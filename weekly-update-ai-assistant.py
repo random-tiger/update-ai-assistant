@@ -73,7 +73,7 @@ def format_agent_response_llm(response: str) -> str:
     """Use the LLM to reformat the agent's response based on a style guide."""
     
     # Step 1: Fetch the style guide from GitHub or a local file
-    style_guide_url = "https://github.com/random-tiger/update-ai-assistant/raw/3f69cfd7f15542d1783f1c083259a86e5bf43016/style-guide.md"
+    style_guide_url = "https://github.com/random-tiger/update-ai-assistant/blob/8461df9e766091f1790ac3e52d0f75a02ca680ba/style-guide.md"
     style_guide_response = requests.get(style_guide_url)
     
     if style_guide_response.status_code != 200:
