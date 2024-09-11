@@ -68,7 +68,7 @@ def format_agent_response_llm(response: str) -> str:
     """Use GPT-4o to reformat the agent's response based on a style guide."""
     
     # Step 1: Fetch the style guide from GitHub or a local file
-    style_guide_url = "https://github.com/random-tiger/update-ai-assistant/raw/3f69cfd7f15542d1783f1c083259a86e5bf43016/style-guide.md"
+    style_guide_url = "https://github.com/random-tiger/update-ai-assistant/blob/4a88633024230c16090de5208227646e05bdee20/style-guide.md"
     style_guide_response = requests.get(style_guide_url)
     
     if style_guide_response.status_code != 200:
